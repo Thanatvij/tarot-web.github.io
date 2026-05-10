@@ -24,3 +24,8 @@ pdf.py
 
 # Logs
 *.log
+
+# Reference files
+index 2.html
+Reference*.png
+Screenshot*.png

@@ -49,16 +49,6 @@ function goToDraw() {
   showSection('section-draw');
 }
 
-/* ============================================
-   CINEMATIC TAROT FAN - Perfectly Symmetrical Spread
-   ============================================
-   Creates a mathematically perfect symmetrical fan:
-   - Middle card(s) act as true center origin (0° angle)
-   - Perfect mirroring: equal cards on left and right sides
-   - Uniform rotation spacing throughout entire arc
-   - Handles odd/even card counts correctly
-   - Responsive radius (40-48% of screen width)
-   ============================================ */
 function buildFan() {
   if (!TAROT_DATA) {
     console.error('Tarot data not loaded yet');
@@ -68,6 +58,19 @@ function buildFan() {
   const wrap = document.getElementById('fanWrap');
   wrap.innerHTML = '';
 
+  // ===== คำนวณ radius จาก viewport จริง =====
+  // radius = ระยะจากจุด pivot (fan-wrap) ถึงกลางไพ่
+  // ใช้ min(vw, vh) เพื่อรองรับทุก device
+  const vw = window.innerWidth;
+  // desktop ≥ 1024: radius ~320, tablet 540-1023: ~220, mobile <540: ~150
+  const radius = vw >= 1024 ? 320
+               : vw >= 768  ? 240
+               : vw >= 480  ? 180
+               :               140;
+
+  const angleSpread = 160; // มุมรวมพัด (ซ้าย -80 ถึงขวา +80)
+  const angleStart = -angleSpread / 2;
+
   // Shuffle cards
   const shuffled = [...TAROT_DATA.cards].map(c => c.id);
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -76,126 +79,29 @@ function buildFan() {
   }
 
   const totalCards = shuffled.length;
-
-  // ===== FAN GEOMETRY CONSTANTS =====
-  const ARC_DEGREES = 110; // Flatter, wider cinematic arc
-  const MAX_ROTATION = 55; // Clamp extreme edge rotation
-
-  // Larger radius for flatter, more elegant spread
-  const viewportWidth = window.innerWidth;
-  const baseRadius = Math.min(
-    Math.max(viewportWidth * 0.55, 450),
-    Math.max(viewportWidth * 0.60, 700)
-  );
-
-  // Card dimensions - smaller to prevent overflow
-  const cardWidth = 60;
-  const cardHeight = 96;
-
-  // Overlap factor: less than 1.0 creates card overlap
-  // 0.65 = 35% overlap between adjacent cards
-  const OVERLAP_FACTOR = 0.65;
-
-  // ===== PERFECT SYMMETRY CALCULATION =====
-  // Determine center point based on odd/even card count
-  const isOddCards = totalCards % 2 !== 0;
-  const centerIndex = Math.floor(totalCards / 2);
-
-  // Calculate how many cards on each side
-  // For odd: (78-1)/2 = 38 cards on each side + 1 center
-  // For even: 78/2 = 39 cards on each side
-  const cardsPerSide = Math.floor(totalCards / 2);
-
-  // Calculate angle step - divide total arc by number of gaps between cards
-  // For symmetry, we need consistent spacing throughout
-  const angleStep = ARC_DEGREES / (totalCards - 1);
+  const angleStep = angleSpread / (totalCards - 1);
 
   shuffled.forEach((cardId, idx) => {
-    // ===== PERFECTLY SYMMETRICAL ANGLE CALCULATION =====
-    // Calculate distance from center (always positive)
-    let distanceFromCenter;
-    let isLeftSide;
+    const angle = angleStart + angleStep * idx;
+    const rad = angle * (Math.PI / 180);
 
-    if (isOddCards) {
-      // Odd cards: center card at index 'centerIndex' has 0 distance
-      // Cards before center are on left side, after center are on right side
-      if (idx < centerIndex) {
-        distanceFromCenter = centerIndex - idx;
-        isLeftSide = true;
-      } else if (idx > centerIndex) {
-        distanceFromCenter = idx - centerIndex;
-        isLeftSide = false;
-      } else {
-        distanceFromCenter = 0;
-        isLeftSide = false; // Center card
-      }
-    } else {
-      // Even cards: two center cards
-      // First half are on left side, second half on right side
-      if (idx < centerIndex) {
-        distanceFromCenter = centerIndex - idx - 1; // Distance from left center card
-        isLeftSide = true;
-      } else {
-        distanceFromCenter = idx - centerIndex; // Distance from right center card
-        isLeftSide = false;
-      }
-    }
+    // ตำแหน่งศูนย์กลางไพ่ relative to fan-wrap (pivot)
+    const x = Math.sin(rad) * radius;
+    const y = Math.cos(rad) * radius; // y บวก = ขึ้นบน
 
-    // Calculate angle: negative for left, positive for right, 0 for center
-    const angle = isLeftSide ? -distanceFromCenter * angleStep : distanceFromCenter * angleStep;
-
-    // ===== POSITION ALONG ARC =====
-    // Convert angle to radians for trig
-    const angleRad = angle * Math.PI / 180;
-
-    // Calculate position along the arc
-    // x moves cards left/right from center
-    // y moves cards up along the arc
-    // Apply overlap factor to x for proper card stacking
-    const x = Math.sin(angleRad) * baseRadius * OVERLAP_FACTOR;
-    const y = Math.cos(angleRad) * baseRadius - baseRadius;
-
-    // ===== DEPTH & PERSPECTIVE =====
-    // Normalized distance for uniform effects (0 at center, 1 at edges)
-    const maxDistance = cardsPerSide;
-    const normalizedDistance = distanceFromCenter / maxDistance;
-
-    // Scale: center cards slightly larger (1.0), edge cards slightly smaller (0.92)
-    const scale = 1 - (normalizedDistance * 0.08);
-
-    // Brightness: center cards brighter (1.0), edge cards slightly dimmer (0.88)
-    const brightness = 1 - (normalizedDistance * 0.12);
-
-    // Z-index: center cards in front, edge cards behind
-    // For overlapping effect, cards closer to center should be on top
-    // Higher z-index for cards closer to center
-    const zIndex = Math.round(50 - (normalizedDistance * 30));
-
-    // ===== SUBTLE VERTICAL CURVATURE =====
-    // Outer cards rise slightly for natural fan effect
-    const riseOffset = normalizedDistance * 12;
-
-    // ===== CREATE CARD ELEMENT =====
     const cardEl = document.createElement('div');
     cardEl.className = 'tarot-card';
     cardEl.dataset.id = cardId;
+    cardEl.dataset.angle = angle;
+    cardEl.dataset.x = x;
+    cardEl.dataset.y = y;
 
-    // Store base transform for hover animations
-    cardEl.style.setProperty('--base-x', `${x}px`);
-    cardEl.style.setProperty('--base-y', `${y}px`);
-    cardEl.style.setProperty('--base-rot', `${angle}deg`);
-    cardEl.style.setProperty('--base-scale', scale);
+    // z-index: ไพ่กลางอยู่บนสุด
+    const distFromCenter = Math.abs(idx - (totalCards - 1) / 2);
+    cardEl.style.zIndex = Math.round(totalCards / 2 - distFromCenter);
 
-    // Apply all transforms
-    cardEl.style.left = `${x - cardWidth / 2}px`;
-    cardEl.style.bottom = `${y + riseOffset}px`;
-    cardEl.style.transform = `
-      translateZ(0)
-      rotate(${angle}deg)
-      scale(${scale})
-    `;
-    cardEl.style.zIndex = zIndex;
-    cardEl.style.filter = `brightness(${brightness})`;
+    // Base transform: translate ออกจาก pivot แล้ว rotate ให้ไพ่หันถูกทิศ
+    cardEl.style.transform = `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
 
     cardEl.innerHTML = `
       <div class="card-inner">
@@ -203,30 +109,27 @@ function buildFan() {
       </div>
     `;
 
-    // Enhanced hover effect
+    // Hover: เลื่อนไพ่ออกจากศูนย์กลางตามทิศที่มันหัน (ตามแกนของไพ่)
+    const liftAmount = 18;
     cardEl.addEventListener('mouseenter', () => {
-      cardEl.style.transform = `
-        translateZ(20px)
-        rotate(${angle}deg)
-        scale(${scale * 1.08})
-        translateY(-15px)
-      `;
+      if (cardEl.classList.contains('selected')) return;
+      const liftX = Math.sin(rad) * liftAmount;
+      const liftY = Math.cos(rad) * liftAmount;
+      cardEl.style.transform =
+        `translate(${x + liftX}px, ${-(y + liftY)}px) rotate(${angle}deg) scale(1.06)`;
+      cardEl.style.zIndex = 200;
+      cardEl.style.filter = 'brightness(1.15) drop-shadow(0 8px 20px rgba(0,0,0,0.5))';
     });
-
     cardEl.addEventListener('mouseleave', () => {
-      cardEl.style.transform = `
-        translateZ(0)
-        rotate(${angle}deg)
-        scale(${scale})
-      `;
+      if (cardEl.classList.contains('selected')) return;
+      cardEl.style.transform = `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
+      cardEl.style.zIndex = Math.round(totalCards / 2 - distFromCenter);
+      cardEl.style.filter = '';
     });
 
     cardEl.addEventListener('click', () => onCardPick(cardEl, cardId));
     wrap.appendChild(cardEl);
   });
-
-  // Add ambient glow effect
-  wrap.style.filter = 'drop-shadow(0 0 30px rgba(147, 51, 234, 0.15))';
 }
 
 function cardBackSVG() {
