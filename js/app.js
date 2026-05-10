@@ -92,6 +92,10 @@ function buildFan() {
   const cardWidth = 60;
   const cardHeight = 96;
 
+  // Overlap factor: less than 1.0 creates card overlap
+  // 0.65 = 35% overlap between adjacent cards
+  const OVERLAP_FACTOR = 0.65;
+
   // ===== PERFECT SYMMETRY CALCULATION =====
   // Determine center point based on odd/even card count
   const isOddCards = totalCards % 2 !== 0;
@@ -147,7 +151,8 @@ function buildFan() {
     // Calculate position along the arc
     // x moves cards left/right from center
     // y moves cards up along the arc
-    const x = Math.sin(angleRad) * baseRadius;
+    // Apply overlap factor to x for proper card stacking
+    const x = Math.sin(angleRad) * baseRadius * OVERLAP_FACTOR;
     const y = Math.cos(angleRad) * baseRadius - baseRadius;
 
     // ===== DEPTH & PERSPECTIVE =====
@@ -161,8 +166,10 @@ function buildFan() {
     // Brightness: center cards brighter (1.0), edge cards slightly dimmer (0.88)
     const brightness = 1 - (normalizedDistance * 0.12);
 
-    // Z-index: center cards in front (25-35), edge cards behind (8-18)
-    const zIndex = Math.round(35 - (normalizedDistance * 18));
+    // Z-index: center cards in front, edge cards behind
+    // For overlapping effect, cards closer to center should be on top
+    // Higher z-index for cards closer to center
+    const zIndex = Math.round(50 - (normalizedDistance * 30));
 
     // ===== SUBTLE VERTICAL CURVATURE =====
     // Outer cards rise slightly for natural fan effect
