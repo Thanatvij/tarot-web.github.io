@@ -58,19 +58,6 @@ function buildFan() {
   const wrap = document.getElementById('fanWrap');
   wrap.innerHTML = '';
 
-  // ===== คำนวณ radius จาก viewport จริง =====
-  // radius = ระยะจากจุด pivot (fan-wrap) ถึงกลางไพ่
-  // ใช้ min(vw, vh) เพื่อรองรับทุก device
-  const vw = window.innerWidth;
-  // desktop ≥ 1024: radius ~320, tablet 540-1023: ~220, mobile <540: ~150
-  const radius = vw >= 1024 ? 320
-               : vw >= 768  ? 240
-               : vw >= 480  ? 180
-               :               140;
-
-  const angleSpread = 160; // มุมรวมพัด (ซ้าย -80 ถึงขวา +80)
-  const angleStart = -angleSpread / 2;
-
   // Shuffle cards
   const shuffled = [...TAROT_DATA.cards].map(c => c.id);
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -79,54 +66,40 @@ function buildFan() {
   }
 
   const totalCards = shuffled.length;
+
+  // มุมของแต่ละใบกระจายเป็นพัดครึ่งวงกลม
+  // ซ้ายสุด -70deg, ขวาสุด +70deg (ตรงกลาง 0deg)
+  const angleSpread = 140;
+  const angleStart = -angleSpread / 2;
   const angleStep = angleSpread / (totalCards - 1);
+
+  const radius = 320;
 
   shuffled.forEach((cardId, idx) => {
     const angle = angleStart + angleStep * idx;
+
     const rad = angle * (Math.PI / 180);
 
-    // ตำแหน่งศูนย์กลางไพ่ relative to fan-wrap (pivot)
     const x = Math.sin(rad) * radius;
-    const y = Math.cos(rad) * radius; // y บวก = ขึ้นบน
+    const y = Math.cos(rad) * radius;
 
     const cardEl = document.createElement('div');
     cardEl.className = 'tarot-card';
     cardEl.dataset.id = cardId;
-    cardEl.dataset.angle = angle;
-    cardEl.dataset.x = x;
-    cardEl.dataset.y = y;
 
-    // z-index: ไพ่กลางอยู่บนสุด
-    const distFromCenter = Math.abs(idx - (totalCards - 1) / 2);
-    cardEl.style.zIndex = Math.round(totalCards / 2 - distFromCenter);
+    // ไพ่ขวา (idx สูง) อยู่บนสุด → มองเห็นเต็มใบ
+    cardEl.style.zIndex = idx;
 
-    // Base transform: translate ออกจาก pivot แล้ว rotate ให้ไพ่หันถูกทิศ
-    cardEl.style.transform = `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
+    cardEl.style.setProperty('--rot', angle + 'deg');
+
+    cardEl.style.transform =
+      `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
 
     cardEl.innerHTML = `
       <div class="card-inner">
         <div class="card-face card-back">${cardBackSVG()}</div>
       </div>
     `;
-
-    // Hover: เลื่อนไพ่ออกจากศูนย์กลางตามทิศที่มันหัน (ตามแกนของไพ่)
-    const liftAmount = 18;
-    cardEl.addEventListener('mouseenter', () => {
-      if (cardEl.classList.contains('selected')) return;
-      const liftX = Math.sin(rad) * liftAmount;
-      const liftY = Math.cos(rad) * liftAmount;
-      cardEl.style.transform =
-        `translate(${x + liftX}px, ${-(y + liftY)}px) rotate(${angle}deg) scale(1.06)`;
-      cardEl.style.zIndex = 200;
-      cardEl.style.filter = 'brightness(1.15) drop-shadow(0 8px 20px rgba(0,0,0,0.5))';
-    });
-    cardEl.addEventListener('mouseleave', () => {
-      if (cardEl.classList.contains('selected')) return;
-      cardEl.style.transform = `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
-      cardEl.style.zIndex = Math.round(totalCards / 2 - distFromCenter);
-      cardEl.style.filter = '';
-    });
-
     cardEl.addEventListener('click', () => onCardPick(cardEl, cardId));
     wrap.appendChild(cardEl);
   });

@@ -373,9 +373,8 @@ body {
 .fan-container {
   position: relative;
   width: 100%;
-  /* สูงพอรองรับพัดกางขึ้น: pivot อยู่ล่าง, ไพ่กางขึ้นประมาณ radius */
-  height: clamp(320px, 55vw, 520px);
-  margin: 30px 0 20px;
+  height: 520px;
+  margin: 180px 0 20px; /* ดันพัดลงมาไม่ทับข้อความ */
   overflow: visible;
 }
 
@@ -383,11 +382,11 @@ body {
 .fan-container::before {
   content: '';
   position: absolute;
-  bottom: 0;
+  bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
   width: min(500px, 85vw);
-  height: 80px;
+  height: 100px;
   background: radial-gradient(ellipse at center bottom,
     rgba(147, 51, 234, 0.15) 0%,
     rgba(147, 51, 234, 0.05) 40%,
@@ -397,35 +396,29 @@ body {
   z-index: 0;
 }
 
-/* fan-wrap = จุด pivot ล่างกลาง ไพ่กางขึ้นด้านบน
-   ไพ่แต่ละใบ position:absolute relative to fan-wrap
-   JS ใช้ translate(x, -y) rotate(angle) โดย origin คือจุดนี้ */
+/* fan-wrap = Center pivot point for radial fan arrangement */
 .fan-wrap {
   position: absolute;
   left: 50%;
-  /* pivot อยู่ล่างของ container */
-  bottom: 0;
+  bottom: 150px;
   width: 0;
   height: 0;
 }
 
-/* ไพ่แต่ละใบ: JS จัดการตำแหน่งผ่าน translate+rotate
-   transform-origin ไม่ถูกใช้ (JS override ทั้งหมด)
-   width/height กำหนดขนาดไพ่เท่านั้น */
+/* ไพ่แต่ละใบ - Premium Card Transform System */
 .tarot-card {
   position: absolute;
-  /* center ไพ่ที่จุด pivot (JS จะ translate ออกไป) */
   left: -45px;
-  top: -144px;
+  bottom: 60px;
   width: 90px;
   height: 144px;
   cursor: pointer;
-  transform-origin: center bottom;
-  transition: filter 0.3s ease, opacity 0.3s ease;
-  will-change: transform;
+  transform-origin: 50% calc(100% + 60px);
+  transition: transform 0.3s ease, filter 0.3s ease;
 }
 
 .tarot-card:hover {
+  transform: rotate(var(--rot)) translateY(-15px) scale(1.05);
   z-index: 100;
   filter: brightness(1.1) drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
 }
@@ -697,19 +690,23 @@ body {
 .footer-ornate { color: var(--gold); margin: 0 10px; }
 
 /* ===== Responsive ===== */
-/* fan-container ใช้ clamp() แล้ว ไม่ต้อง override height
-   แค่ปรับ card size ตาม breakpoint ให้ JS รับผ่าน data attribute */
+@media (max-width: 1024px) {
+  .fan-wrap { bottom: 120px; }
+  .fan-container { height: 300px; margin: 30px 0 20px; }
+}
 
 @media (max-width: 768px) {
   .title-thai { font-size: 2.3rem; }
   .title-main { font-size: 1.3rem; letter-spacing: 0.25em; }
   .moon { width: 50px; height: 50px; top: 20px; right: 20px; }
-  .fan-container { margin: 20px 0 15px; }
+  .fan-wrap { bottom: 100px; }
+  .fan-container { height: 220px; margin: 20px 0 30px; }
   .tarot-card {
-    width: 52px;
-    height: 83px;
-    left: -26px;
-    top: -83px;
+    width: 55px;
+    height: 88px;
+    left: -27.5px;
+    bottom: 40px;
+    transform-origin: 50% calc(100% + 40px);
   }
   .selected-card-display { width: 110px; height: 188px; }
   .reading-block { padding: 20px; }
@@ -721,12 +718,14 @@ body {
 }
 
 @media (max-width: 480px) {
+  .fan-wrap { bottom: 80px; }
+  .fan-container { height: 180px; }
   .title-thai { font-size: 1.9rem; }
-  .fan-container { margin: 15px 0 10px; }
   .tarot-card {
-    width: 38px;
-    height: 61px;
-    left: -19px;
-    top: -61px;
+    width: 44px;
+    height: 70px;
+    left: -22px;
+    bottom: 30px;
+    transform-origin: 50% calc(100% + 30px);
   }
 }
