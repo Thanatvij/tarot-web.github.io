@@ -224,6 +224,27 @@ body {
   font-size: 1rem;
 }
 
+@media (max-width: 640px) {
+  .section-title {
+    font-size: 1.8rem;
+  }
+  .section-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-title {
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+  }
+  .section-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 35px;
+  }
+}
+
 .category-grid {
   display: flex;
   flex-wrap: wrap;
@@ -236,16 +257,30 @@ body {
 }
 
 .category-card {
-  flex: 1 1 160px;
+  flex: 1 1 120px;
   max-width: 180px;
   background: linear-gradient(135deg, rgba(45, 0, 82, 0.6) 0%, rgba(26, 0, 51, 0.6) 100%);
   border: 1.5px solid rgba(212, 175, 55, 0.4);
   border-radius: 8px;
-  padding: 28px 18px;
+  padding: 20px 12px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+}
+
+@media (min-width: 640px) {
+  .category-card {
+    flex: 1 1 140px;
+    padding: 24px 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .category-card {
+    flex: 1 1 160px;
+    padding: 28px 18px;
+  }
 }
 
 .category-card:hover {
@@ -786,6 +821,18 @@ body {
   .fan-container { height: 349px; margin: 100px 0 20px; }
   .draw-position { font-size: 1.25rem; }
   .draw-position-desc { font-size: 0.85rem; }
+}
+
+@media (max-width: 400px) {
+  .title-thai { font-size: 1.7rem; }
+  .title-main { font-size: 1.1rem; letter-spacing: 0.2em; }
+  .subtitle { font-size: 0.95rem; margin-bottom: 40px; }
+  .container { padding: 30px 12px 60px; }
+  .section-title { font-size: 1.4rem; margin-bottom: 10px; }
+  .section-subtitle { font-size: 0.85rem; margin-bottom: 30px; }
+  .category-emoji { font-size: 2rem; }
+  .category-name { font-size: 1rem; }
+  .btn-primary { padding: 14px 40px; font-size: 1rem; }
 }
 
 /* ========================================================================
