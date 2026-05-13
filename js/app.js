@@ -17,11 +17,8 @@ const POSITIONS_FUTURE = [
 
 // Keywords สำหรับ detect คำถามเชิงอนาคต
 const FUTURE_KEYWORDS = [
-  // คำถามเชิงอนาคต
   'จะ', 'ไหม', 'มั้ย', 'อนาคต', 'หน้า', 'ต่อไป', 'รุ่ง',
-  // คำถามเชิงผล/คำตอบ
   'เป้า', 'ทัน', 'ได้', 'เป็นยังไง', 'ผล',
-  // คำถามเชิงความเป็นไปได้
   'รอด', 'สำเร็จ', 'ชนะ', 'ไปต่อ', 'แต่ง', 'รับ'
 ];
 
@@ -29,17 +26,17 @@ let selectedCategory = null;
 let userQuestion = '';
 let drawnCards = [];
 let currentDrawIndex = 0;
-let currentSpreadType = 'default'; // 'default' or 'future'
-let TAROT_DATA = null; // Will be loaded from tarot-all.json
+let currentSpreadType = 'default';
+let TAROT_DATA = null;
+// shuffled order ที่ใช้ระหว่าง draw — เก็บไว้เพื่อใช้ตอนตัดไพ่
+let currentShuffledIds = [];
 
-// ตรวจสอบว่าคำถามเป็นเชิงอนาคตหรือไม่
 function isFutureQuestion(question) {
   if (!question) return false;
   const lowerQ = question.toLowerCase();
   return FUTURE_KEYWORDS.some(keyword => lowerQ.includes(keyword));
 }
 
-// ดึงตำแหน่งไพ่ตามประเภทคำถาม
 function getCurrentPositions() {
   return currentSpreadType === 'future' ? POSITIONS_FUTURE : POSITIONS;
 }
@@ -68,21 +65,256 @@ function showSection(id) {
 
 function goToCategory() { showSection('section-category'); }
 
-function goToDraw() {
+function goToShuffle() {
   if (!selectedCategory) return;
   userQuestion = document.getElementById('questionInput').value.trim();
 
-  // Detect ประเภทคำถามและเลือก spread
   currentSpreadType = isFutureQuestion(userQuestion) ? 'future' : 'default';
 
   drawnCards = [];
   currentDrawIndex = 0;
-  buildFan();
-  updateDrawStatus();
-  showSection('section-draw');
+
+  showSection('section-shuffle');
+  createShuffleAnimation();
+  createShuffleParticles();
+
+  // Auto advance to draw section after 3 seconds
+  setTimeout(() => goToDraw(), 3000);
 }
 
-function buildFan() {
+function createShuffleAnimation() {
+  const deck = document.getElementById('shuffleDeck');
+  if (!deck) return;
+
+  deck.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const card = document.createElement('div');
+    card.className = 'shuffle-card';
+    card.innerHTML = cardBackSVG();
+    deck.appendChild(card);
+  }
+}
+
+function createShuffleParticles() {
+  const particles = document.getElementById('shuffleParticles');
+  if (!particles) return;
+
+  particles.innerHTML = '';
+  // สร้าง particles แบบสุ่มกระจายรอบ deck
+  for (let i = 0; i < 16; i++) {
+    const p = document.createElement('div');
+    p.className = 'shuffle-particle';
+
+    // สุ่มทิศทาง (มุมรอบ deck)
+    const angle = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.4;
+    const distance = 60 + Math.random() * 80;
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance;
+
+    p.style.left = '50%';
+    p.style.top = '50%';
+    p.style.setProperty('--tx', tx + 'px');
+    p.style.setProperty('--ty', ty + 'px');
+    p.style.animationDelay = (Math.random() * 3) + 's';
+    p.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
+
+    particles.appendChild(p);
+  }
+}
+
+// เข้า section-draw แล้วกางพัดทันที + แสดงปุ่มตัดไพ่
+function goToDraw() {
+  prepareShuffledOrder();
+
+  // แสดง fan + draw status + ปุ่มตัดไพ่
+  document.getElementById('fanContainer').style.display = 'block';
+  document.getElementById('drawStatus').style.display = 'block';
+  document.getElementById('cutButtonWrap').classList.remove('hidden');
+  document.getElementById('cutOverlay').classList.remove('active', 'piles-visible', 'show-instruction');
+
+  showSection('section-draw');
+  buildFan(currentShuffledIds, /* clickable */ true);
+  updateDrawStatus();
+}
+
+// เตรียม shuffled order
+function prepareShuffledOrder() {
+  if (!TAROT_DATA) {
+    console.error('Tarot data not loaded yet');
+    return;
+  }
+  const shuffled = TAROT_DATA.cards.map(c => c.id);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  currentShuffledIds = shuffled;
+}
+
+// ==========================================
+// CUT DECK ANIMATION
+// ==========================================
+
+// เริ่ม animation ตัดไพ่: ซ่อนปุ่ม → รวมไพ่ → แสดง cut stack → แยก 2 กอง → auto-pick
+async function startCutAnimation() {
+  // ซ่อนปุ่มตัดไพ่
+  document.getElementById('cutButtonWrap').classList.add('hidden');
+
+  // รวมไพ่ทั้งหมดกลับเข้ากองตรงกลาง
+  await collapseFanToStack();
+
+  // แสดง cut overlay + cut stack
+  showCutStack();
+  await sleep(400);
+
+  // เรืองแสง
+  const cutStack = document.getElementById('cutStack');
+  cutStack.classList.add('glowing');
+  await sleep(800);
+  cutStack.classList.remove('glowing');
+
+  // ซ่อน cut stack แล้วแยกออกเป็น 2 กอง
+  cutStack.style.opacity = '0';
+  await sleep(200);
+  cutStack.style.display = 'none';
+
+  // แสดง 2 กอง (ไม่ต้องแสดง instruction เพราะจะ auto-pick)
+  showCutPilesWithoutInstruction();
+  await sleep(1200);
+
+  // AUTO-PICK: กองล่าง flip ขึ้นทับกองบน (ตามธรรมเนียม)
+  await autoCutDeck();
+}
+
+// แสดง 2 กองโดยไม่แสดง instruction (เพราะจะ auto-pick)
+function showCutPilesWithoutInstruction() {
+  const overlay = document.getElementById('cutOverlay');
+
+  // เตรียมไพ่ในแต่ละ pile
+  const topCards = document.getElementById('cutPileTopCards');
+  const bottomCards = document.getElementById('cutPileBottomCards');
+
+  topCards.innerHTML = '';
+  bottomCards.innerHTML = '';
+
+  // ใส่ไพ่ 8 ใบในแต่ละกอง (ให้ดูเป็นกองหนาๆ)
+  for (let i = 0; i < 8; i++) {
+    const t = document.createElement('div');
+    t.className = 'stack-card';
+    t.style.zIndex = 8 - i;
+    t.innerHTML = cardBackSVG();
+    topCards.appendChild(t);
+
+    const b = document.createElement('div');
+    b.className = 'stack-card';
+    b.style.zIndex = 8 - i;
+    b.innerHTML = cardBackSVG();
+    bottomCards.appendChild(b);
+  }
+
+  // reset state
+  document.getElementById('cutPileTop').classList.remove('selected', 'unselected', 'selected-merging');
+  document.getElementById('cutPileBottom').classList.remove('selected', 'unselected', 'selected-merging');
+
+  // แสดง piles (ไม่แสดง instruction)
+  overlay.classList.add('piles-visible');
+}
+
+// Auto-pick: กองล่าง flip ขึ้นทับกองบน → รวม → กางใหม่
+async function autoCutDeck() {
+  const topPile = document.getElementById('cutPileTop');
+  const bottomPile = document.getElementById('cutPileBottom');
+  const overlay = document.getElementById('cutOverlay');
+
+  // กองล่างเลือก (flip ขึ้นมาวางบน)
+  bottomPile.classList.add('selected-merging');
+  topPile.classList.add('unselected');
+
+  // ตัดไพ่: กองล่างขึ้นบน (ตามธรรมเนียม)
+  cutDeckOrder('bottom');
+
+  // รอ merge animation
+  await sleep(800);
+
+  // ซ่อน overlay
+  overlay.classList.remove('active', 'piles-visible', 'show-instruction');
+
+  // กางพัดใหม่พร้อม animation expand
+  await sleep(200);
+  buildFan(currentShuffledIds, /* clickable */ true, /* withExpandAnim */ true);
+  updateDrawStatus();
+}
+
+// รวมพัดกลับเข้ากองตรงกลาง
+function collapseFanToStack() {
+  return new Promise(resolve => {
+    const wrap = document.getElementById('fanWrap');
+    const cards = wrap.querySelectorAll('.tarot-card');
+
+    cards.forEach((card, idx) => {
+      // animate ทีละใบ stagger เล็กน้อย
+      const delay = idx * 8; // 8ms per card
+      setTimeout(() => {
+        card.style.transition = 'transform 0.5s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.5s ease';
+        card.style.transform = 'translate(0, 0) rotate(0deg) scale(0.8)';
+        card.style.opacity = '0';
+      }, delay);
+    });
+
+    // รอให้ animation จบ
+    setTimeout(() => {
+      wrap.innerHTML = '';
+      resolve();
+    }, cards.length * 8 + 600);
+  });
+}
+
+// แสดง cut stack ที่ตรงกลาง (กองรวม)
+function showCutStack() {
+  const overlay = document.getElementById('cutOverlay');
+  const stack = document.getElementById('cutStack');
+
+  overlay.classList.add('active');
+  stack.style.display = 'block';
+  stack.style.opacity = '1';
+  stack.innerHTML = '';
+
+  // ใส่ไพ่หลายๆ ใบซ้อนกัน (ให้ดูเป็นกองหนาๆ)
+  const stackSize = 15;
+  for (let i = 0; i < stackSize; i++) {
+    const card = document.createElement('div');
+    card.className = 'cut-stack-card';
+    // offset แต่ละใบเล็กๆ ให้ดูเป็นกองธรรมชาติ
+    const offset = i * 0.3;
+    card.style.transform = `translate(${-offset}px, ${-offset}px)`;
+    card.style.zIndex = i;
+    card.innerHTML = cardBackSVG();
+    stack.appendChild(card);
+  }
+}
+
+// ตัดสำรับไพ่ (ใช้ใน auto-pick)
+// 'bottom' = กองล่างขึ้นบน (สลับ ตามธรรมเนียมหมอดู)
+function cutDeckOrder(choice) {
+  const mid = Math.floor(currentShuffledIds.length / 2);
+  const topHalf = currentShuffledIds.slice(0, mid);
+  const bottomHalf = currentShuffledIds.slice(mid);
+
+  if (choice === 'bottom') {
+    // สลับ: เอากองล่างขึ้นบน
+    currentShuffledIds = bottomHalf.concat(topHalf);
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ==========================================
+// FAN BUILDER
+// ==========================================
+
+function buildFan(cardIds, clickable = true, withExpandAnim = false) {
   if (!TAROT_DATA) {
     console.error('Tarot data not loaded yet');
     return;
@@ -90,44 +322,51 @@ function buildFan() {
 
   const wrap = document.getElementById('fanWrap');
   wrap.innerHTML = '';
+  wrap.classList.remove('collapsing', 'expanding');
 
-  // Shuffle cards
-  const shuffled = [...TAROT_DATA.cards].map(c => c.id);
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  const ids = cardIds || currentShuffledIds;
+  const totalCards = ids.length;
 
-  const totalCards = shuffled.length;
-
-  // Responsive radius & angle spread — คำนวณให้พอดีกับ container height ทุก breakpoint
+  // Responsive radius & angle
   const vw = window.innerWidth;
   const radius = vw > 1024 ? 220 : vw > 768 ? 160 : vw > 480 ? 115 : 95;
-
-  // Mobile: ลด angle spread เพื่อไม่ให้เกินจอ
-  const angleSpread = vw < 480 ? 100 : 140; // ลดเหลือ 100° บน mobile
+  const angleSpread = vw < 480 ? 100 : 140;
   const angleStart = -angleSpread / 2;
   const angleStep = angleSpread / (totalCards - 1);
 
-  shuffled.forEach((cardId, idx) => {
+  ids.forEach((cardId, idx) => {
     const angle = angleStart + angleStep * idx;
-
     const rad = angle * (Math.PI / 180);
-
     const x = Math.sin(rad) * radius;
     const y = Math.cos(rad) * radius;
 
     const cardEl = document.createElement('div');
     cardEl.className = 'tarot-card';
     cardEl.dataset.id = cardId;
-
-    // ไพ่ขวา (idx สูง) อยู่บนสุด → มองเห็นเต็มใบ
     cardEl.style.zIndex = idx;
-
     cardEl.style.setProperty('--rot', angle + 'deg');
 
-    cardEl.style.transform =
-      `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
+    const finalTransform = `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
+
+    if (withExpandAnim) {
+      // เริ่มจากตรงกลาง opacity 0 → animate ไปตำแหน่งจริง
+      cardEl.style.transform = 'translate(0, 0) rotate(0deg) scale(0.7)';
+      cardEl.style.opacity = '0';
+      cardEl.style.transition = 'transform 0.7s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.5s ease';
+
+      // stagger expand
+      setTimeout(() => {
+        cardEl.style.transform = finalTransform;
+        cardEl.style.opacity = '1';
+      }, idx * 6 + 50);
+
+      // หลัง animation เสร็จ ลบ transition พิเศษ → ให้กลับไปใช้ของ CSS default
+      setTimeout(() => {
+        cardEl.style.transition = '';
+      }, idx * 6 + 900);
+    } else {
+      cardEl.style.transform = finalTransform;
+    }
 
     cardEl.innerHTML = `
       <div class="card-inner">
@@ -135,7 +374,11 @@ function buildFan() {
       </div>
     `;
 
-    cardEl.addEventListener('click', () => onCardPick(cardEl, cardId));
+    if (clickable) {
+      cardEl.addEventListener('click', () => onCardPick(cardEl, cardId));
+    } else {
+      cardEl.style.cursor = 'default';
+    }
     wrap.appendChild(cardEl);
   });
 }
@@ -156,48 +399,33 @@ function cardBackSVG() {
         </linearGradient>
       </defs>
 
-      <!-- Main card background -->
       <rect x="2" y="2" width="56" height="86" rx="4" fill="url(#bg-grad)"
             stroke="#d4af37" stroke-width="0.8"/>
-
-      <!-- Inner decorative border -->
       <rect x="5" y="5" width="50" height="80" rx="2" fill="none"
             stroke="url(#gold-shine)" stroke-width="0.5"/>
 
-      <!-- Center mystical emblem -->
       <g transform="translate(30, 45)">
-        <!-- Outer star glow -->
         <circle cx="0" cy="0" r="18" fill="none"
                 stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
         <circle cx="0" cy="0" r="14" fill="none"
                 stroke="#d4af37" stroke-width="0.3" opacity="0.3"/>
-
-        <!-- 8-point star -->
         <path d="M 0 -22 L 2.5 -6 L 22 0 L 2.5 6 L 0 22 L -2.5 6 L -22 0 L -2.5 -6 Z"
               fill="#d4af37" opacity="0.9"/>
-
-        <!-- Inner circle with mystical eye -->
         <circle cx="0" cy="0" r="7" fill="#0a0014"
                 stroke="#ffd700" stroke-width="0.8"/>
         <ellipse cx="0" cy="0" rx="4" ry="2.3" fill="#ffd700"/>
         <circle cx="0" cy="0" r="1.2" fill="#0a0014"/>
-
-        <!-- Orbital rings -->
         <circle cx="0" cy="0" r="10" fill="none"
                 stroke="#ffd700" stroke-width="0.4" opacity="0.5"/>
       </g>
 
-      <!-- Corner decorations -->
       <g fill="#d4af37" opacity="0.65">
-        <!-- Top corners -->
         <circle cx="8" cy="10" r="1.2"/>
         <circle cx="52" cy="10" r="1.2"/>
-        <!-- Bottom corners -->
         <circle cx="8" cy="80" r="1.2"/>
         <circle cx="52" cy="80" r="1.2"/>
       </g>
 
-      <!-- Mystical symbols -->
       <g fill="#d4af37" opacity="0.5" font-size="5">
         <text x="10" y="16">✧</text>
         <text x="45" y="16">✧</text>
@@ -205,7 +433,6 @@ function cardBackSVG() {
         <text x="45" y="76">✧</text>
       </g>
 
-      <!-- Subtle corner accents -->
       <g stroke="#d4af37" stroke-width="0.3" opacity="0.4" fill="none">
         <path d="M 2 8 L 8 2 L 12 2"/>
         <path d="M 58 8 L 52 2 L 48 2"/>
@@ -213,7 +440,6 @@ function cardBackSVG() {
         <path d="M 58 82 L 52 88 L 48 88"/>
       </g>
 
-      <!-- Central vertical line -->
       <line x1="30" y1="20" x2="30" y2="70"
             stroke="#d4af37" stroke-width="0.25" opacity="0.25"/>
     </svg>
@@ -272,7 +498,6 @@ function showResult() {
   const readings = document.getElementById('readingsContainer');
   let html = '';
   drawnCards.forEach((card, i) => {
-    // ใช้ meanings ปกติเสมอ (ไม่มี reversed)
     const meaning = card.meanings[selectedCategory];
     html += `
       <div class="reading-block">
@@ -355,9 +580,22 @@ function resetAll() {
   drawnCards = [];
   currentDrawIndex = 0;
   currentSpreadType = 'default';
+  currentShuffledIds = [];
   document.getElementById('questionInput').value = '';
   document.querySelectorAll('.category-card').forEach(c => c.classList.remove('selected'));
   document.getElementById('btnStartDraw').disabled = true;
+
+  // reset draw section state
+  document.getElementById('cutButtonWrap').classList.remove('hidden');
+  document.getElementById('drawStatus').style.display = 'none';
+  document.getElementById('fanContainer').style.display = 'none';
+  document.getElementById('cutOverlay').classList.remove('active', 'piles-visible', 'show-instruction');
+  const cutStack = document.getElementById('cutStack');
+  if (cutStack) {
+    cutStack.style.display = 'block';
+    cutStack.style.opacity = '1';
+  }
+
   showSection('section-landing');
 }
 
@@ -372,7 +610,6 @@ async function loadTarotData() {
     console.log('Tarot data loaded successfully:', TAROT_DATA.cards.length, 'cards');
   } catch (error) {
     console.error('Error loading tarot data:', error);
-    // Show error message to user
     document.body.innerHTML = `
       <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; font-family: 'Noto Serif Thai', serif; color: #f5e6d3;">
         <h1 style="color: #d4af37; margin-bottom: 20px;">ขออภัย</h1>
@@ -387,7 +624,6 @@ async function loadTarotData() {
 // Share Image Feature
 // ========================
 
-// Load image with CORS for canvas
 function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -398,7 +634,6 @@ function loadImage(url) {
   });
 }
 
-// Generate share image canvas (1080x1080)
 async function generateShareImage() {
   await document.fonts.ready;
   await new Promise(resolve => setTimeout(resolve, 600));
@@ -411,7 +646,6 @@ async function generateShareImage() {
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
 
-  // ===== BACKGROUND =====
   const bg = ctx.createRadialGradient(w/2, h/2, 200, w/2, h/2, 800);
   bg.addColorStop(0, '#2a0047');
   bg.addColorStop(0.5, '#150024');
@@ -419,7 +653,6 @@ async function generateShareImage() {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  // Stars
   const drawStar = (x, y, r) => {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -430,7 +663,6 @@ async function generateShareImage() {
     drawStar(Math.random()*w, Math.random()*h, Math.random()*1.5+0.5);
   }
 
-  // ===== MOON =====
   const mx = 940, my = 85, mr = 50;
   const mg = ctx.createRadialGradient(mx, my, 0, mx, my, mr*3);
   mg.addColorStop(0, 'rgba(255,215,0,0.4)');
@@ -445,7 +677,6 @@ async function generateShareImage() {
   ctx.fillStyle = mb;
   ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI*2); ctx.fill();
 
-  // ===== HEADER =====
   ctx.save();
   ctx.shadowColor = 'rgba(255,215,0,0.7)';
   ctx.shadowBlur = 25;
@@ -457,7 +688,6 @@ async function generateShareImage() {
   ctx.fillText('พยากรณ์แห่งดวงดาว', w/2, 72);
   ctx.restore();
 
-  // Divider line
   ctx.strokeStyle = '#d4af37';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -465,7 +695,6 @@ async function generateShareImage() {
   ctx.lineTo(930, 105);
   ctx.stroke();
 
-  // Category badge
   ctx.fillStyle = 'rgba(212,175,55,0.2)';
   ctx.beginPath();
   ctx.roundRect(w/2 - 130, 120, 260, 40, 20);
@@ -480,15 +709,12 @@ async function generateShareImage() {
   ctx.textBaseline = 'middle';
   ctx.fillText(CATEGORY_LABEL[selectedCategory], w/2, 142);
 
-  // ===== CARDS (CENTERED PROPERLY) =====
-  const cw = 210;  // Card width
-  const ch = 336;  // Card height
-  const gap = 35;  // Gap between cards
-
-  // Calculate center position: total width of all cards + gaps
+  const cw = 210;
+  const ch = 336;
+  const gap = 35;
   const totalWidth = (cw * 3) + (gap * 2);
   const startX = (w - totalWidth) / 2;
-  const cy = 200;  // Card Y position
+  const cy = 200;
 
   try {
     const imgs = await Promise.all(drawnCards.map(c => loadImage(c.image)));
@@ -497,31 +723,25 @@ async function generateShareImage() {
     imgs.forEach((img, i) => {
       const cx = startX + (i * (cw + gap));
 
-      // Purple glow behind card
       const gg = ctx.createRadialGradient(cx + cw/2, cy + ch/2, 0, cx + cw/2, cy + ch/2, 180);
       gg.addColorStop(0, 'rgba(147,51,234,0.25)');
       gg.addColorStop(1, 'transparent');
       ctx.fillStyle = gg;
       ctx.fillRect(cx - 50, cy - 50, cw + 100, ch + 100);
 
-      // Shadow
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(cx + 12, cy + 12, cw, ch);
 
-      // Card border - outer gold
       ctx.strokeStyle = '#ffd700';
       ctx.lineWidth = 4;
       ctx.strokeRect(cx - 3, cy - 3, cw + 6, ch + 6);
 
-      // Card border - inner gold
       ctx.strokeStyle = '#d4af37';
       ctx.lineWidth = 2;
       ctx.strokeRect(cx, cy, cw, ch);
 
-      // Card image
       ctx.drawImage(img, cx, cy, cw, ch);
 
-      // Card name background (bigger to fit text)
       ctx.fillStyle = 'rgba(10,0,20,0.9)';
       ctx.beginPath();
       ctx.roundRect(cx - 12, cy + ch + 8, cw + 24, 40, 10);
@@ -530,24 +750,20 @@ async function generateShareImage() {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Card name
       ctx.fillStyle = '#f5e6d3';
       ctx.font = 'bold 20px "Noto Serif Thai","Thonburi","Microsoft Sans Serif",sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(drawnCards[i].nameTh, cx + cw/2, cy + ch + 30);
 
-      // Position indicator (moved down more)
       const iy = cy + ch + 62;
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 17px "Noto Serif Thai","Thonburi","Microsoft Sans Serif",sans-serif';
       ctx.fillText(`${pos[i].icon} ${pos[i].title}`, cx + cw/2, iy);
     });
 
-    // ===== FOOTER =====
     const fy = h - 75;
 
-    // Top line
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -555,7 +771,6 @@ async function generateShareImage() {
     ctx.lineTo(910, fy);
     ctx.stroke();
 
-    // Center diamond
     const drawDiamond = (x, y, s) => {
       ctx.beginPath();
       ctx.moveTo(x, y - s);
@@ -572,18 +787,15 @@ async function generateShareImage() {
     drawDiamond(w/2 - 50, fy, 6);
     drawDiamond(w/2 + 50, fy, 6);
 
-    // Side stars
     drawStar(300, fy, 3);
     drawStar(780, fy, 3);
 
-    // Watermark
     ctx.fillStyle = 'rgba(212,175,55,0.4)';
     ctx.font = '18px "Cinzel","Georgia",serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('✦ thanatvij.github.io ✦', w/2, fy + 35);
 
-    // Corner ornaments
     const drawCorner = (x, y, r) => {
       ctx.strokeStyle = 'rgba(212,175,55,0.6)';
       ctx.lineWidth = 2.5;
@@ -611,20 +823,16 @@ async function generateShareImage() {
   }
 }
 
-// Share or download the generated image
 async function shareResult() {
   const btn = document.getElementById('btnShare');
   if (!btn) return;
 
-  // Update button state
   const originalText = btn.textContent;
   btn.textContent = 'กำลังสร้างภาพ...';
   btn.disabled = true;
 
   try {
     const canvas = await generateShareImage();
-
-    // Convert to blob with high quality
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((b) => {
         if (b) resolve(b);
@@ -634,7 +842,6 @@ async function shareResult() {
 
     const fileName = `tarot-${Date.now()}.png`;
 
-    // Check if native share is available (mobile)
     if (navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], fileName, { type: 'image/png' });
@@ -644,25 +851,21 @@ async function shareResult() {
           text: `ผลการอ่านไพ่ทาโรต์ - ${CATEGORY_LABEL[selectedCategory]}`
         });
       } catch (shareError) {
-        // If share fails (user cancelled), fallback to download
         console.log('Share cancelled or failed, downloading instead');
         downloadImage(blob, fileName);
       }
     } else {
-      // Desktop - download directly
       downloadImage(blob, fileName);
     }
   } catch (error) {
     console.error('Error sharing image:', error);
     alert('ไม่สามารถสร้างภาพได้ กรุณาลองใหม่อีกครั้ง');
   } finally {
-    // Restore button state
     btn.textContent = originalText;
     btn.disabled = false;
   }
 }
 
-// Helper function to download image
 function downloadImage(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -670,18 +873,13 @@ function downloadImage(blob, fileName) {
   a.download = fileName;
   a.style.display = 'none';
   document.body.appendChild(a);
-
-  // Trigger download
   a.click();
-
-  // Cleanup
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 100);
 }
 
-// Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
   await loadTarotData();
   createStarfield();
@@ -694,16 +892,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Setup share button
   const shareBtn = document.getElementById('btnShare');
   if (shareBtn) {
     shareBtn.addEventListener('click', shareResult);
   }
 });
 
-// Rebuild fan เมื่อหมุนมือถือ
+// Rebuild fan เมื่อหมุนมือถือ (เฉพาะกรณี fan แสดงอยู่ปกติ ไม่ใช่ระหว่างตัดไพ่)
 window.addEventListener('resize', () => {
-  if (document.getElementById('section-draw').classList.contains('active')) {
-    buildFan();
+  const drawSection = document.getElementById('section-draw');
+  const fanContainer = document.getElementById('fanContainer');
+  const cutOverlay = document.getElementById('cutOverlay');
+
+  if (drawSection.classList.contains('active') &&
+      fanContainer.style.display !== 'none' &&
+      !cutOverlay.classList.contains('active') &&
+      currentShuffledIds.length > 0) {
+    buildFan(currentShuffledIds, true, false);
   }
 });

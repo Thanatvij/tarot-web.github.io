@@ -61,6 +61,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Individual readings** per card + **summary reading** based on overall patterns
 - **Reversed card meanings** — Different interpretations when cards appear reversed
 
+### 🃏 Shuffle & Cut Experience
+- **Cinematic shuffle animation** — Enhanced riffle shuffle with particle effects
+- **Interactive cut deck** — Users can cut the deck to infuse their energy into the cards
+- **3D card stack visuals** — Realistic card piles with layered pseudo-elements and shadows
+- **Centered cut button** — Positioned at the center of the card fan (54% desktop, 62% mobile)
+- **Touch-friendly** — Works on all devices with responsive positioning
+
 ### 📚 Tarot Guide Encyclopedia
 - **Separate page** (`tarot-guide.html`) with educational content
 - **Card browsing** — All 78 cards with images and meanings

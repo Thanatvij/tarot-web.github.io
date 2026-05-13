@@ -113,12 +113,27 @@
     </div>
 
     <div class="center-btn">
-      <button class="btn-primary w-full sm:w-auto px-8 md:px-16" id="btnStartDraw" onclick="goToDraw()" disabled>เปิดไพ่</button>
+      <button class="btn-primary w-full sm:w-auto px-8 md:px-16" id="btnStartDraw" onclick="goToShuffle()" disabled>เปิดไพ่</button>
     </div>
   </section>
 
+  <!-- Shuffle Section -->
+  <section class="section" id="section-shuffle">
+    <div class="shuffle-container">
+      <div class="shuffle-particles" id="shuffleParticles"></div>
+      <div class="shuffle-deck" id="shuffleDeck"></div>
+      <div class="shuffle-text">
+        <h2 class="shuffle-title">กำลังสับไพ่...</h2>
+        <p class="shuffle-subtitle">จงน้อมจิตสงบ และมุ่งมั่นกับคำถามของคุณ</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Draw Section: กางพัด + ปุ่มตัดไพ่ -->
   <section class="section" id="section-draw">
-    <div class="draw-status px-4 md:px-8">
+
+    <!-- Draw Status: แสดงตอนเปิดไพ่จริง -->
+    <div class="draw-status px-4 md:px-8" id="drawStatus" style="display:none;">
       <div class="draw-position" id="drawPosition">🔮 ใบที่ 1: เจ้าชะตา</div>
       <div class="draw-position-desc" id="drawDesc">ตัวคุณ บุคลิก พลังงานในตัว</div>
       <div class="draw-progress" id="drawProgress">
@@ -128,8 +143,35 @@
       </div>
     </div>
 
-    <div class="fan-container">
+    <!-- Cut Button Section: ปุ่มตัดไพ่ (วางระหว่าง status กับพัด) -->
+    <div class="cut-button-section" id="cutButtonWrap">
+      <button class="btn-cut-deck" id="btnCutDeck" onclick="startCutAnimation()">
+        ✦ ตัดไพ่
+      </button>
+      <p class="cut-button-subtitle">เลือกตัดไพ่หากต้องการส่งพลังเข้าสู่สำรับ</p>
+    </div>
+
+    <!-- Fan Container: ที่กางไพ่ -->
+    <div class="fan-container" id="fanContainer">
       <div class="fan-wrap" id="fanWrap"></div>
+
+      <!-- Cut Overlay: ใช้ตอน animation ตัดไพ่ -->
+      <div class="cut-overlay" id="cutOverlay">
+        <div class="cut-header">
+          <h3 class="cut-title">ตัดไพ่</h3>
+          <p class="cut-subtitle">ส่งพลังของคุณเข้าสู่สำรับไพ่</p>
+        </div>
+        <div class="cut-stack" id="cutStack"></div>
+        <div class="cut-pile cut-pile-top" id="cutPileTop" onclick="selectPile('top')">
+          <div class="cut-pile-cards" id="cutPileTopCards"></div>
+
+        </div>
+        <div class="cut-pile cut-pile-bottom" id="cutPileBottom" onclick="selectPile('bottom')">
+          <div class="cut-pile-cards" id="cutPileBottomCards"></div>
+
+        </div>
+        <div class="cut-instruction" id="cutInstruction">เลือกกองที่จะวางไว้บน</div>
+      </div>
     </div>
   </section>
 
@@ -149,8 +191,6 @@
     </div>
   </section>
 
-</div>
-
 <footer class="footer">
   <div class="px-4 md:px-8">
     <p class="footer-text text-sm md:text-base">
@@ -161,6 +201,9 @@
     <a class="footer-ig" href="https://instagram.com/thanxt.v" target="_blank" rel="noopener">
       📷 Instagram: @thanxt.v
     </a>
+    <a class="footer-ig" href="https://thanatvij.github.io" target="_blank" rel="noopener" style="margin-top: 10px;">
+      🌐 ดูผลงงานอื่นๆ ได้ที่ thanatvij.github.io
+    </a>
     <a class="footer-ig" href="tarot-guide.html" style="margin-top: 15px;">
       📖 สารานุกรมไพ่ทาโรต์
     </a>
@@ -169,6 +212,8 @@
     </p>
   </div>
 </footer>
+
+</div>
 
 <script src="js/app.js"></script>
 </body>
