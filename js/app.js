@@ -100,15 +100,14 @@ function buildFan() {
 
   const totalCards = shuffled.length;
 
-  // มุมของแต่ละใบกระจายเป็นพัดครึ่งวงกลม
-  // ซ้ายสุด -70deg, ขวาสุด +70deg (ตรงกลาง 0deg)
-  const angleSpread = 140;
-  const angleStart = -angleSpread / 2;
-  const angleStep = angleSpread / (totalCards - 1);
-
-  // Responsive radius — คำนวณให้พอดีกับ container height ทุก breakpoint
+  // Responsive radius & angle spread — คำนวณให้พอดีกับ container height ทุก breakpoint
   const vw = window.innerWidth;
   const radius = vw > 1024 ? 220 : vw > 768 ? 160 : vw > 480 ? 115 : 95;
+
+  // Mobile: ลด angle spread เพื่อไม่ให้เกินจอ
+  const angleSpread = vw < 480 ? 100 : 140; // ลดเหลือ 100° บน mobile
+  const angleStart = -angleSpread / 2;
+  const angleStep = angleSpread / (totalCards - 1);
 
   shuffled.forEach((cardId, idx) => {
     const angle = angleStart + angleStep * idx;

@@ -439,7 +439,8 @@ body {
   width: 100%;
   height: 564px;  /* B(100) + bottom(60) + height(144) + r(220) + buffer(20) + extra(20) */
   margin: 160px 0 20px;
-  overflow: visible;
+  overflow-x: hidden; /* Prevent horizontal overflow */
+  overflow-y: visible;
 }
 
 /* Subtle ambient glow beneath the fan */
@@ -787,17 +788,13 @@ body {
 @media (max-width: 480px) {
   .title-thai { font-size: 1.9rem; }
   .fan-wrap { bottom: 30px; }
-  .fan-container { height: 349px; margin: 100px 0 20px; }
+  .fan-container {
+    height: 349px;
+    margin: 100px 0 20px;
+    overflow-x: hidden; /* Prevent horizontal overflow */
+  }
   .draw-position { font-size: 1.25rem; }
   .draw-position-desc { font-size: 0.85rem; }
-
-  /* Scale up cards on mobile */
-  .fan-container {
-    transform: scale(1.15);
-  }
-  .fan-wrap {
-    transform: scale(1.15);
-  }
 }
 
 @media (max-width: 400px) {
@@ -813,12 +810,9 @@ body {
   .fan-container {
     height: 320px;
     margin: 70px 0 20px;
-    transform: scale(1.15);
-    width: 100vw;
-    left: 0;
-    overflow: visible;
+    overflow-x: hidden; /* Prevent horizontal overflow */
   }
-  .fan-wrap { bottom: 25px; transform: scale(1.25); }
+  .fan-wrap { bottom: 25px; }
 
   /* Scale up individual cards on small mobile */
   .tarot-card {
