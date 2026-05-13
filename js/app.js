@@ -130,23 +130,11 @@ function buildFan() {
     cardEl.style.transform =
       `translate(${x}px, ${-y}px) rotate(${angle}deg)`;
 
-    // สุ่มสุ่มได้ 30% ที่ไพ่จะเป็นกลับหัว
-    const isReversed = Math.random() < 0.3;
-    cardEl.dataset.reversed = isReversed;
-
     cardEl.innerHTML = `
       <div class="card-inner">
         <div class="card-face card-back">${cardBackSVG()}</div>
       </div>
     `;
-
-    // ถ้ากลับหัว หมุนเฉพาะ card-inner
-    if (isReversed) {
-      const cardInner = cardEl.querySelector('.card-inner');
-      if (cardInner) {
-        cardInner.style.transform = 'rotate(180deg)';
-      }
-    }
 
     cardEl.addEventListener('click', () => onCardPick(cardEl, cardId));
     wrap.appendChild(cardEl);
@@ -238,8 +226,6 @@ function onCardPick(cardEl, cardId) {
   if (currentDrawIndex >= 3) return;
 
   const card = TAROT_DATA.cards.find(c => c.id === cardId);
-  // อ่านค่า reversed จาก dataset แล้วเก็บไว้ใน card object
-  card.isReversed = cardEl.dataset.reversed === 'true';
   drawnCards.push(card);
   cardEl.classList.add('selected');
   currentDrawIndex++;
@@ -275,8 +261,7 @@ function showResult() {
   const cardsEl = document.getElementById('selectedCardsDisplay');
   cardsEl.innerHTML = drawnCards.map((card, i) => `
     <div class="selected-card-wrap">
-      <div class="selected-card-display ${card.isReversed ? 'card-reversed' : ''}">
-        ${card.isReversed ? '<div class="reversed-badge">กลับหัว</div>' : ''}
+      <div class="selected-card-display">
         <img src="${card.image}" alt="${card.nameEn}" loading="lazy">
       </div>
       <div class="selected-card-name">${card.nameTh}</div>
@@ -288,21 +273,19 @@ function showResult() {
   const readings = document.getElementById('readingsContainer');
   let html = '';
   drawnCards.forEach((card, i) => {
-    // ใช้ meaningsReversed ถ้าไพ่กลับหัว ถ้าไม่กลับหัวใช้ meanings ปกติ
-    const meaning = card.isReversed ? card.meaningsReversed[selectedCategory] : card.meanings[selectedCategory];
+    // ใช้ meanings ปกติเสมอ (ไม่มี reversed)
+    const meaning = card.meanings[selectedCategory];
     html += `
-      <div class="reading-block ${card.isReversed ? 'reading-reversed' : ''}">
+      <div class="reading-block">
         <div class="reading-header">
           <span class="reading-icon">${positions[i].icon}</span>
           <div class="reading-title">${positions[i].title}</div>
           <div class="reading-card-name">
             ${card.nameTh}
             <span class="en">${card.nameEn}</span>
-            ${card.isReversed ? '<span class="reversed-indicator"> (กลับหัว)</span>' : ''}
           </div>
         </div>
         <div class="reading-text">${meaning}</div>
-        ${card.isReversed ? '<div class="reversed-note">⚠️ ไพ่กลับหัว: ความหมายตรงกันข้ามจากปกติ สะท้อนพลังงานที่ถูกบดบัง หรือสิ่งที่ต้องระวัง</div>' : ''}
       </div>
     `;
   });
@@ -537,15 +520,7 @@ async function generateShareImage() {
       ctx.strokeRect(cx, cy, cw, ch);
 
       // Card image
-      ctx.save();
-      if (drawnCards[i].isReversed) {
-        ctx.translate(cx + cw/2, cy + ch/2);
-        ctx.rotate(Math.PI);
-        ctx.drawImage(img, -cw/2, -ch/2, cw, ch);
-      } else {
-        ctx.drawImage(img, cx, cy, cw, ch);
-      }
-      ctx.restore();
+      ctx.drawImage(img, cx, cy, cw, ch);
 
       // Card name background (bigger to fit text)
       ctx.fillStyle = 'rgba(10,0,20,0.9)';
@@ -568,13 +543,6 @@ async function generateShareImage() {
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 17px "Noto Serif Thai","Thonburi","Microsoft Sans Serif",sans-serif';
       ctx.fillText(`${pos[i].icon} ${pos[i].title}`, cx + cw/2, iy);
-
-      // Reversed badge
-      if (drawnCards[i].isReversed) {
-        ctx.fillStyle = '#ff5555';
-        ctx.font = 'bold 14px "Sarabun","Microsoft Sans Serif",sans-serif';
-        ctx.fillText('(กลับหัว)', cx + cw/2, iy + 22);
-      }
     });
 
     // ===== FOOTER =====
